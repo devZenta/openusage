@@ -526,6 +526,10 @@ pub fn run() {
 
             tray::create(app.handle())?;
 
+            // On Linux, hide the popup when it loses focus (mirrors macOS NSPanel behaviour).
+            #[cfg(target_os = "linux")]
+            linux_window::setup_focus_hide(app.handle());
+
             app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
 
             // Register global shortcut from stored settings

@@ -4,7 +4,7 @@
 //! The window is kept always-on-top and is positioned near the system-tray icon
 //! so that it feels like a dropdown panel, consistent with the macOS experience.
 
-use tauri::{AppHandle, Manager, Position, Size};
+use tauri::{AppHandle, Manager, Position, Size, WindowEvent};
 
 /// Show the main window and bring it to the foreground.
 pub fn show_window(app_handle: &AppHandle) {
@@ -41,6 +41,27 @@ pub fn is_visible(app_handle: &AppHandle) -> bool {
         .get_webview_window("main")
         .map(|w| w.is_visible().unwrap_or(false))
         .unwrap_or(false)
+}
+
+/// Register a focus-lost handler so the popup auto-hides when the user
+/// clicks outside it — mirroring the macOS NSPanel behaviour.
+///
+/// Call this once from the Tauri `setup` block.
+pub fn setup_focus_hide(app_handle: &AppHandle) {
+    let window = match app_handle.get_webview_window("main") {
+        Some(w) => w,
+        None => {
+            log::warn!("linux_window::setup_focus_hide: main window not found");
+            return;
+        }
+    };
+
+    window.on_window_event(move |event| {
+        if let WindowEvent::Focused(false) = event {
+            log::debug!("linux_window: focus lost, hiding window");
+            let _ = window.hide();
+        }
+    });
 }
 
 /// Position the window so it appears just below the tray icon.
