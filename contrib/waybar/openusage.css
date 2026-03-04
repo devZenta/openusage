@@ -1,0 +1,38 @@
+/* OpenUsage – Waybar CSS styles
+ *
+ * Copy or @import this file into your waybar style.css.
+ * The CSS classes (ok / warning / critical) are emitted automatically
+ * by `openusage --waybar` based on the highest usage percentage across
+ * all configured providers.
+ *
+ * Class thresholds:
+ *   ok       – all providers below 80 %
+ *   warning  – at least one provider at or above 80 %
+ *   critical – at least one provider at or above 95 %
+ */
+
+#custom-openusage {
+    padding: 0 8px;
+    border-radius: 4px;
+    font-weight: 500;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+#custom-openusage.ok {
+    color: @text;           /* default text colour from your theme */
+}
+
+#custom-openusage.warning {
+    color: #f9e2af;         /* Catppuccin yellow / your warning colour */
+    background-color: rgba(249, 226, 175, 0.1);
+}
+
+#custom-openusage.critical {
+    color: #f38ba8;         /* Catppuccin red / your critical colour */
+    background-color: rgba(243, 139, 168, 0.15);
+    animation: blink 1s linear infinite;
+}
+
+@keyframes blink {
+    to { opacity: 0.5; }
+}

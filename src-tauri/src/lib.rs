@@ -1,8 +1,12 @@
 #[cfg(target_os = "macos")]
 mod app_nap;
+#[cfg(target_os = "linux")]
+mod linux_window;
+#[cfg(target_os = "macos")]
 mod panel;
 mod plugin_engine;
 mod tray;
+pub mod waybar;
 #[cfg(target_os = "macos")]
 mod webkit_config;
 
@@ -87,12 +91,15 @@ fn managed_shortcut_slot() -> &'static Mutex<Option<String>> {
     SLOT.get_or_init(|| Mutex::new(None))
 }
 
-/// Shared shortcut handler that toggles the panel when the shortcut is pressed.
+/// Shared shortcut handler that toggles the panel/window when the shortcut is pressed.
 #[cfg(desktop)]
 fn handle_global_shortcut(app: &tauri::AppHandle, event: tauri_plugin_global_shortcut::ShortcutEvent) {
     if event.state == ShortcutState::Pressed {
         log::debug!("Global shortcut triggered");
+        #[cfg(target_os = "macos")]
         panel::toggle_panel(app);
+        #[cfg(target_os = "linux")]
+        linux_window::toggle_window(app);
     }
 }
 
@@ -152,17 +159,33 @@ pub struct ProbeBatchComplete {
     pub batch_id: String,
 }
 
+/// macOS-only: convert the main window to a floating NSPanel.
+#[cfg(target_os = "macos")]
 #[tauri::command]
 fn init_panel(app_handle: tauri::AppHandle) {
     panel::init(&app_handle).expect("Failed to initialize panel");
 }
 
+/// Linux: no-op — window is already managed as a regular Tauri window.
+#[cfg(target_os = "linux")]
+#[tauri::command]
+fn init_panel(_app_handle: tauri::AppHandle) {}
+
+/// macOS-only: hide the NSPanel.
+#[cfg(target_os = "macos")]
 #[tauri::command]
 fn hide_panel(app_handle: tauri::AppHandle) {
     use tauri_nspanel::ManagerExt;
     if let Ok(panel) = app_handle.get_webview_panel("main") {
         panel.hide();
     }
+}
+
+/// Linux: hide the main window.
+#[cfg(target_os = "linux")]
+#[tauri::command]
+fn hide_panel(app_handle: tauri::AppHandle) {
+    linux_window::hide_window(&app_handle);
 }
 
 #[tauri::command]
@@ -299,12 +322,34 @@ async fn start_probe_batch(
 
 #[tauri::command]
 fn get_log_path(app_handle: tauri::AppHandle) -> Result<String, String> {
-    // macOS log directory: ~/Library/Logs/{bundleIdentifier}
+    get_log_path_impl(&app_handle)
+}
+
+#[cfg(target_os = "macos")]
+fn get_log_path_impl(app_handle: &tauri::AppHandle) -> Result<String, String> {
+    // macOS: ~/Library/Logs/{bundleId}/{name}.log
     let home = dirs::home_dir().ok_or("no home dir")?;
     let bundle_id = app_handle.config().identifier.clone();
     let log_dir = home.join("Library").join("Logs").join(&bundle_id);
     let log_file = log_dir.join(format!("{}.log", app_handle.package_info().name));
     Ok(log_file.to_string_lossy().to_string())
+}
+
+#[cfg(target_os = "linux")]
+fn get_log_path_impl(app_handle: &tauri::AppHandle) -> Result<String, String> {
+    // Linux: $XDG_STATE_HOME/openusage/{name}.log  (XDG Base Directory spec)
+    let state_dir = dirs::state_dir()
+        .or_else(|| dirs::home_dir().map(|h| h.join(".local/state")))
+        .ok_or("no state dir")?;
+    let log_file = state_dir
+        .join("openusage")
+        .join(format!("{}.log", app_handle.package_info().name));
+    Ok(log_file.to_string_lossy().to_string())
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+fn get_log_path_impl(_app_handle: &tauri::AppHandle) -> Result<String, String> {
+    Err("get_log_path not implemented for this platform".to_string())
 }
 
 /// Update the global shortcut registration.
@@ -420,7 +465,6 @@ pub fn run() {
         .plugin(tauri_plugin_aptabase::Builder::new("A-US-6435241436").build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
-        .plugin(tauri_nspanel::init())
         .plugin(
             tauri_plugin_log::Builder::new()
                 .targets([
@@ -474,6 +518,11 @@ pub fn run() {
                 app_data_dir,
                 app_version: app.package_info().version.to_string(),
             }));
+
+            // tauri_nspanel must be registered as a plugin before the tray
+            // creates the panel, so we initialise it here on macOS.
+            #[cfg(target_os = "macos")]
+            app.handle().plugin(tauri_nspanel::init())?;
 
             tray::create(app.handle())?;
 

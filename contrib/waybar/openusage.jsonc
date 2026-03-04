@@ -1,0 +1,55 @@
+// OpenUsage – Waybar module configuration
+//
+// Add this snippet to your waybar config.jsonc (usually
+// ~/.config/waybar/config.jsonc) and add "custom/openusage" to
+// whichever bar section you prefer (modules-left / modules-center /
+// modules-right).
+//
+// The `exec` command calls `openusage --waybar` which probes all your
+// configured providers and prints a single-line JSON payload.
+// Waybar refreshes the output every `interval` seconds.
+//
+// Prerequisites:
+//   1. Install OpenUsage and make sure `openusage` is in your PATH.
+//   2. Configure at least one provider by launching the full app once:
+//        openusage
+//   3. Add the snippet below to your waybar config and reload waybar:
+//        pkill -SIGUSR2 waybar
+//
+// Styling: see openusage.css for matching CSS classes.
+
+{
+    // ── bar section to paste this into ──────────────────────────────────────
+    // "modules-right": ["custom/openusage", ...],
+
+    // ── module definition ────────────────────────────────────────────────────
+    "custom/openusage": {
+        // Run openusage in waybar output mode.
+        "exec": "openusage --waybar",
+
+        // Refresh interval in seconds.
+        // 300 = every 5 minutes (matches default auto-refresh interval).
+        "interval": 300,
+
+        // Return-type must be "json" to parse text / tooltip / class fields.
+        "return-type": "json",
+
+        // Click the module to open the full OpenUsage window.
+        "on-click": "openusage",
+
+        // Optional: prepend a Nerd Font icon.
+        // Remove or replace with a different glyph if you don't use Nerd Fonts.
+        "format": "󰄛 {}",
+
+        // Tooltip is already formatted by openusage; enable Pango markup so
+        // provider names render in bold.
+        "tooltip": true,
+
+        // Escape Pango markup in the text field (tooltip uses markup directly).
+        "escape": true,
+
+        // Force a one-off refresh by sending SIGRTMIN+8 to waybar:
+        //   pkill -SIGRTMIN+8 waybar
+        "signal": 8
+    }
+}

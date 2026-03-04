@@ -1,0 +1,37 @@
+# OpenUsage – systemd user service
+#
+# Starts OpenUsage as a background system-tray daemon on login.
+# The app will appear in your system tray (e.g. waybar's tray module).
+#
+# Installation:
+#   mkdir -p ~/.config/systemd/user
+#   cp openusage.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now openusage.service
+#
+# View logs:
+#   journalctl --user -u openusage -f
+
+[Unit]
+Description=OpenUsage – AI subscription usage tracker
+Documentation=https://github.com/robinebers/openusage
+# Wait for the graphical session so the tray icon can be registered.
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/openusage
+Restart=on-failure
+RestartSec=5
+
+# Forward SIGUSR1 / SIGUSR2 to the process (waybar uses SIGUSR2 to reload).
+KillSignal=SIGTERM
+
+# XDG environment variables – Hyprland typically exports these via the
+# graphical-session.target; uncomment if the service can't find them.
+# Environment=XDG_RUNTIME_DIR=/run/user/%U
+# Environment=WAYLAND_DISPLAY=wayland-1
+
+[Install]
+WantedBy=graphical-session.target
